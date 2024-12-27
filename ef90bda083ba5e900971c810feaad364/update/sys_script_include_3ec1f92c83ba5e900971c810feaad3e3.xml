@@ -1,0 +1,188 @@
+<?xml version="1.0" encoding="UTF-8"?><record_update table="sys_script_include">
+    <sys_script_include action="INSERT_OR_UPDATE">
+        <access>public</access>
+        <active>true</active>
+        <api_name>x_376096_sync_hash.HashUtil</api_name>
+        <caller_access/>
+        <client_callable>false</client_callable>
+        <description/>
+        <mobile_callable>false</mobile_callable>
+        <name>HashUtil</name>
+        <sandbox_callable>false</sandbox_callable>
+        <script><![CDATA[/* global gs, sn_ws, sn_cc */
+/* global Class, GlideRecord, GlideDigest */
+/* eslint no-undef: "error" */
+var HashUtil = Class.create();
+HashUtil.CONN_ALIAS = {
+	GIT: {
+		id: 'x_376096_sync_hash.HashSync',
+		sys_id: '1cc0312483ba5e900971c810feaad3dc'
+	}
+};
+HashUtil.prototype = {
+	initialize: function () {
+		this.hash_file = gs.getProperty('x_376096_sync_hash.hash_file');
+		this.git_token = new sn_cc.StandardCredentialsProvider()
+			.getCredentialByAliasID(HashUtil.CONN_ALIAS.GIT.sys_id)
+			?.getAttribute('password');
+	},
+
+	_getFileDataFromGitHub: function (path, token) {
+		const req = new sn_ws.RESTMessageV2();
+		req.setEndpoint(path);
+		req.setHttpMethod('get');
+		if (token) {
+			req.setRequestHeader('Authorization', 'Bearer ' + token);
+		}
+
+		const resp = req.execute();
+		if (resp.haveError()) {
+			throw new Error(`Failed to get ${path}: ${resp.getErrorMessage()} (${resp.getErrorCode()})`);
+		}
+
+		return JSON.parse(resp.getBody());
+	},
+
+	_getFileFromGitHub: function (path, token) {
+		const fileData = this._getFileDataFromGitHub(path, token);
+		return gs.base64Decode(fileData.content);
+	},
+
+	scan: function () {
+		const hashToPkgVer = {};
+		const packages = this.getPackageHashes();
+		packages.forEach(pkg => {
+			pkg.versions.forEach(ver => {
+				ver.package = pkg;
+				hashToPkgVer[ver.hash] = ver;
+			});
+		});
+
+		const packagesMatched = {};
+		const updateSetGr = new GlideRecord('sys_update_set');
+		updateSetGr.orderByDesc('sys_created_on');
+		updateSetGr.query();
+		while (updateSetGr.next()) {
+			let hash = 0;
+			const updateGr = new GlideRecord('sys_update_xml');
+			updateGr.addQuery('update_set', updateSetGr.sys_id);
+			updateGr.addNotNullQuery('payload_hash');
+			updateGr.query();
+			while (updateGr.next()) {
+				hash += parseInt(updateGr.payload_hash);
+			}
+
+			if (hash && hash in hashToPkgVer) {
+				const pkgVer = hashToPkgVer[hash];
+				pkgVer.installed = true;
+				pkgVer.package.installed = true;
+			}
+		}
+
+		packages.forEach(function (pkg) {
+			if (!pkg.installed) {
+				return;
+			}
+
+			if (pkg.versions[pkg.versions.length - 1].installed) {
+				gs.info('Detected up-to-date package: ' + pkg.name);
+			} else {
+				pkg.needs_update = true;
+				gs.info('Detected outdated package: ' + pkg.name);
+			}
+		});
+
+		return packages;
+	},
+
+	getPackageHashes: function () {
+		const pkgGr = new GlideRecord('x_376096_now_sync_package');
+		pkgGr.addQuery('source', gs.getProperty('x_376096_sync_hash.now_share_alias_sys_id'));
+		pkgGr.orderBy('name');
+		pkgGr.query();
+
+		const packages = [];
+		while (pkgGr.next()) {
+			const pkg = {
+				id: pkgGr.source_id.toString(),
+				name: pkgGr.name.toString(),
+				versions: []
+			};
+
+			const verGr = new GlideRecord('x_376096_now_sync_package_version');
+			verGr.addQuery('package', pkgGr.sys_id);
+			verGr.addNotNullQuery('hash');
+			verGr.orderBy('version');
+			verGr.query();
+			if (!verGr.hasNext()) {
+				continue;
+			}
+
+			while (verGr.next()) {
+				pkg.versions.push({
+					version: verGr.version.toString(),
+					hash: parseInt(verGr.getValue('hash'))
+				});
+			}
+
+			packages.push(pkg);
+		}
+
+		return packages;
+	},
+
+	updatePackagesHashes: function () {
+		const packages = this.getPackageHashes();
+		const fileData = this._getFileDataFromGitHub(this.hash_file, this.git_token);
+		return updateFile(this.git_token, this.hash_file, fileData, JSON.stringify(packages, null, 2));
+
+		function updateFile(token, path, fileData, newContent) {
+			if (gs.base64Decode(fileData.content) == newContent) {
+				return;
+			}
+
+			const req = new sn_ws.RESTMessageV2();
+			req.setEndpoint(path);
+			req.setHttpMethod('put');
+			req.setRequestHeader('Authorization', 'Bearer ' + token);
+			req.setRequestBody(JSON.stringify({
+				content: gs.base64Encode(newContent),
+				message: 'Updated Hashes',
+				sha: fileData.sha
+			}));
+			const resp = req.execute();
+			if (resp.haveError()) {
+				throw new Error(`Failed to update ${path}: ${resp.getErrorMessage()} (${resp.getErrorCode()})`);
+			}
+
+			return JSON.parse(resp.getBody());
+		}
+	},
+
+	type: 'HashUtil'
+};]]></script>
+        <sys_class_name>sys_script_include</sys_class_name>
+        <sys_created_by>markus.kraus</sys_created_by>
+        <sys_created_on>2024-12-27 15:32:49</sys_created_on>
+        <sys_id>3ec1f92c83ba5e900971c810feaad3e3</sys_id>
+        <sys_mod_count>14</sys_mod_count>
+        <sys_name>HashUtil</sys_name>
+        <sys_package display_value="NOW Sync - Hashes" source="x_376096_sync_hash">ef90bda083ba5e900971c810feaad364</sys_package>
+        <sys_policy/>
+        <sys_scope display_value="NOW Sync - Hashes">ef90bda083ba5e900971c810feaad364</sys_scope>
+        <sys_update_name>sys_script_include_3ec1f92c83ba5e900971c810feaad3e3</sys_update_name>
+        <sys_updated_by>markus.kraus</sys_updated_by>
+        <sys_updated_on>2024-12-27 16:18:06</sys_updated_on>
+    </sys_script_include>
+    <sys_es_latest_script action="INSERT_OR_UPDATE">
+        <id>3ec1f92c83ba5e900971c810feaad3e3</id>
+        <sys_created_by>markus.kraus</sys_created_by>
+        <sys_created_on>2024-12-27 15:32:49</sys_created_on>
+        <sys_id>8108f9a0833e5e900971c810feaad331</sys_id>
+        <sys_mod_count>0</sys_mod_count>
+        <sys_updated_by>markus.kraus</sys_updated_by>
+        <sys_updated_on>2024-12-27 15:32:49</sys_updated_on>
+        <table>sys_script_include</table>
+        <use_es_latest>true</use_es_latest>
+    </sys_es_latest_script>
+</record_update>
