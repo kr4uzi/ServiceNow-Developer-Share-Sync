@@ -3596,6 +3596,20 @@
     ]
   },
   {
+    "id": "3574737_exploreit",
+    "name": "ExploreIt!",
+    "versions": [
+      {
+        "version": "1.0",
+        "hash": -783741485
+      },
+      {
+        "version": "1.1",
+        "hash": 1502315571
+      }
+    ]
+  },
+  {
     "id": "2821923_export_performance_analytics_scores1",
     "name": "Export Performance Analytics Scores",
     "versions": [
