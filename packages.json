@@ -2078,6 +2078,26 @@
     ]
   },
   {
+    "id": "8889331_cmdb_ci_relationship_wizard",
+    "name": "CMDB CI Relationship Wizard",
+    "versions": [
+      {
+        "version": "1.0",
+        "hash": 1001329295
+      }
+    ]
+  },
+  {
+    "id": "8889331_cmdb_ci_relationship_wizard",
+    "name": "CMDB CI Relationship Wizard",
+    "versions": [
+      {
+        "version": "1.0",
+        "hash": 1001329295
+      }
+    ]
+  },
+  {
     "id": "3287388_cmdb_data_compare",
     "name": "CMDB Data compare",
     "versions": [
@@ -4460,6 +4480,26 @@
       {
         "version": "1.0",
         "hash": 7735544545
+      }
+    ]
+  },
+  {
+    "id": "3537059_content_reference_automation",
+    "name": "GRC Content reference automation",
+    "versions": [
+      {
+        "version": "1.0",
+        "hash": -1734665083
+      }
+    ]
+  },
+  {
+    "id": "3537059_content_reference_automation",
+    "name": "GRC Content reference automation",
+    "versions": [
+      {
+        "version": "1.0",
+        "hash": -1734665083
       }
     ]
   },
@@ -8216,6 +8256,10 @@
       {
         "version": "3.0",
         "hash": -2297850895
+      },
+      {
+        "version": "3.3",
+        "hash": 1013458291
       }
     ]
   },
